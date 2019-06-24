@@ -10,7 +10,8 @@ class wav
 {
     private:
         WAVHEADER header;
-        vector<short> data;
+        vector<short> data16[2];
+        vector<unsigned char> data8[2];
     public:
         wav()
         {}
@@ -22,10 +23,11 @@ class wav
         {}
         bool readFromFile(const char* nameOfFile);
         bool writeInFile(const char* nameOfFile) const;
-        bool writeRawData(const char* nameOfFile)const;
+        bool writeRawData(const char* nameOfFile, int maxSamples)const;
         void genStdMathFunction(int samples);
         void printHeader();
         void changeData();
+        bool checkHeader();
 };
 double function(double t);
 #endif
