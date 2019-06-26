@@ -7,13 +7,8 @@ using namespace std;
 int main()
 {
     wav w1;
-    //w1.genStdMathFunction(100000);
-    //w1.printHeader();
-    //w1.writeInFile("funk1000.wav");
-    w1.readFromFile("pcm1616k.wav"); 
-    w1.printHeader();
-    //w1.changeData();
-    w1.writeRawData("sineRaw.dat", 120000);
-    w1.writeInFile("test.wav");
+    w1.genStdMathFunction(1000000);
+    w1.writeInFile("CheckStdMathFunction.wav");
+    w1.writeRawData("DifferentFreq.dat", 100000);
     return 0;
 }

@@ -20,35 +20,15 @@ bool wav::readFromFile(const char* nameOfFile)
     }
     if(!checkHeader())
         return false;
-    if(header.bitsPerSample == 8)
+    if(data != NULL)
+        delete[] data;
+    data = new unsigned char[header.subchunk2Size];
+    if(fread(data, sizeof(unsigned char), header.subchunk2Size, input) != header.subchunk2Size)
     {
-        for(int i = 0; i < header.subchunk2Size; i += 1)
-        {
-            unsigned char tmp;
-            for(int channel = 0; channel < header.numChannels; channel += header.numChannels)
-            {
-                fread(&(tmp),sizeof(unsigned char), 1, input);
-                data8[channel].push_back(tmp); 
-            }
-        }
+        cout << "Cannot read samples " << endl;
+        return false;
     }
-    else if(header.bitsPerSample == 16)
-    {
-        for(int i = 0; i < header.subchunk2Size; i+= 2*header.numChannels)
-        {
-            short tmp;
-            for(int channel = 0; channel < header.numChannels; channel++)
-            {
-                fread(&(tmp), sizeof(short), 1, input);
-                data16[channel].push_back(tmp);
-            }
-        }
-    }
-    for(int i = 0; i < data16[0].size(); i++)
-    {
-        cout << data16[0][i] << " " << data16[1][i] << endl;
-    }
-    fclose(input);
+    fclose(input);    
     return true;
  }
  void wav::printHeader()
@@ -87,7 +67,7 @@ bool wav::checkHeader()
     else if(header.audioFormat != 1)
     {
         cout << endl;
-        cout << "Unexpected format" << header.audioFormat << endl;
+        cout << "Unexpected format " << header.audioFormat << endl;
         cout << endl;
         return false;
     }
@@ -103,24 +83,27 @@ bool wav::writeRawData(const char* nameOfFile, int maxSamples)const
     }
     if(header.bitsPerSample == 8)
     {
-        for(int i = 0; i < min((int)data8[0].size(), maxSamples); i++)
+        for(int i = 0; i < header.subchunk2Size; i++)
         {
-            for(int channel = 0; channel < header.numChannels; channel++)
-            {
-                fprintf(output, "%d %d ", i, data8[channel][i]);
-            }
-            fprintf(output, "\n");
+            if(i % header.numChannels == 0)
+                fprintf(output, "%d %d ", i, data[i]);
+            else if(i % header.numChannels == 1)
+                fprintf(output, "%d %d \n", i, data[i]);
+            if(header.numChannels == 1)
+                fprintf(output, "\n");
         }
     }
     else if(header.bitsPerSample == 16)
     {
-        for(int i = 0; i < min((int)data16[0].size(), maxSamples); i++)
+        short * data16 = (short *)data;
+        for(int i = 0; i < header.subchunk2Size/2; i++)
         {
-            for(int channel = 0; channel < header.numChannels; channel++)
-            {
-                fprintf(output, "%d %d ", i, data16[channel][i]);
-            }
-            fprintf(output, "\n");
+            if(i % header.numChannels == 0)
+                fprintf(output, "%d %d ", i, data16[i]);
+            else if(i % header.numChannels == 1)
+                fprintf(output, "%d %d \n", i, data16[i]);
+            if(header.numChannels == 1)
+                fprintf(output, "\n");
         }
     }
     fclose(output);
@@ -134,27 +117,10 @@ bool wav::writeInFile(const char* nameOfFile)const
         cout << "Cannot open file to write" << endl;
         return false;
     }
-    fwrite(&header, sizeof(WAVHEADER), 1, output);
-    if(header.bitsPerSample == 8)
-    {
-        for(int i = 0; i < data8[0].size(); i++)
-        {
-            for(int channel = 0; channel < header.numChannels; channel++)
-            {
-                fwrite(&(data8[channel][i]), sizeof(unsigned char), 1, output);
-            }
-        }
-    }
-    else if(header.bitsPerSample == 16)
-    {
-        for(int i = 0; i < data16[0].size(); i++)
-        {
-            for(int channel = 0; channel < header.numChannels; channel++)
-            {
-                fwrite(&(data16[channel][i]), sizeof(short), 1, output);
-            }
-        }
-    }
+    if(fwrite(&header, sizeof(WAVHEADER), 1, output) != 1)
+        cout << "Cannot write header " << endl;
+    if(fwrite(data, sizeof(unsigned char), header.subchunk2Size, output) != header.subchunk2Size)
+        cout << "Cannot write data" << endl;    
     fclose(output);
     return true;
 }
@@ -173,40 +139,49 @@ void wav::genStdMathFunction(int samples)
     header.bitsPerSample = 16;
     header.subchunk2Id[0] = 'd'; header.subchunk2Id[1] = 'a'; header.subchunk2Id[2] = 't'; header.subchunk2Id[3] = 'a';
     header.subchunk2Size = samples*2;
-    data16[0].clear();
-    data16[1].clear();
+    if(data != NULL)
+        delete [] data;
+    data = new unsigned char[samples*2];
+    short * data16 = (short*)data;
     for(int i = 0; i < samples; i++)
     {
-        data16[0].push_back(60000*function(((double)(i))/44100.));
+        data16[i] = 60000*function(((double)(i))/44100.);
     }
 }
 void wav::changeData()
 {
     if(header.bitsPerSample == 8)
     {
-        for(int i = 0; i < data8[0].size(); i++)
+        for(int i = 0; i < header.subchunk2Size; i++)
         {
-            for(int channels = 0; channels < header.numChannels; channels++)
+            if(i%header.numChannels == 0)
             {
-                data8[channels][i] = 100 + 5*(data8[channels][i] - 127);
+                data[i] = 0;
+            }
+            else if(i%header.numChannels == 1) 
+            {
+                data[i] += 1;
             }
         }
     }
     else if(header.bitsPerSample == 16)
     {
-        for(int i = 0; i < data16[0].size(); i++)
+        short * data16 = (short *)data;
+        for(int i = 0; i < header.subchunk2Size/2; i++)
         {
-            for(int channels = 0; channels < header.numChannels; channels++)
+            if(i%header.numChannels == 0)
             {
-                if(channels == 0)
-                    data16[channels][i] *= 1;
-                else 
-                    data16[channels][i] *= 0.1;
+                data16[i] = 0;
+            } 
+            else 
+            {
+                data16[i] += 1;
             }
         }
     }
 }
 double function(double t)
-{
-    return sin(1000*t);
+{ 
+
+    return sin(100*t*((int)(t*10) + 1));
 }

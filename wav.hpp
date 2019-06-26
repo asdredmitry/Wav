@@ -10,17 +10,21 @@ class wav
 {
     private:
         WAVHEADER header;
-        vector<short> data16[2];
-        vector<unsigned char> data8[2];
+        unsigned char * data;
     public:
         wav()
-        {}
+        {
+            data = NULL;
+        }
         wav(const char* nameOfFile)
         {
             readFromFile(nameOfFile);
         }
         ~wav()
-        {}
+        {
+            if(data != NULL)
+                delete[] data;
+        }
         bool readFromFile(const char* nameOfFile);
         bool writeInFile(const char* nameOfFile) const;
         bool writeRawData(const char* nameOfFile, int maxSamples)const;
